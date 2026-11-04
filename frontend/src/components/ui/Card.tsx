@@ -1,19 +1,17 @@
-import { motion, type HTMLMotionProps } from "framer-motion";
+import { motion } from "motion/react";
+import type { ReactNode } from "react";
 
-type CardProps = HTMLMotionProps<"div"> & {
-  padded?: boolean;
-};
+interface CardProps {
+  children: ReactNode;
+  className?: string;
+  hover?: boolean;
+}
 
-export function Card({
-  padded = true,
-  className = "",
-  children,
-  ...props
-}: CardProps) {
+export function Card({ children, className = "", hover = true }: CardProps) {
   return (
     <motion.div
-      className={`card${padded ? " card-padded" : ""} ${className}`}
-      {...props}
+      whileHover={hover ? { y: -4 } : undefined}
+      className={`bg-card rounded-card p-7 shadow-sm transition-shadow hover:shadow-md ${className}`}
     >
       {children}
     </motion.div>

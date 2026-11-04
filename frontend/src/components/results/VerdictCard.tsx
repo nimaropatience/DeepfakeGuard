@@ -1,53 +1,90 @@
-import { ArrowDownRight, ArrowUpRight, CircleHelp } from "lucide-react";
-import { Card } from "../ui/Card";
-import type { AnalysisResult } from "../../lib/types";
+import { motion, useSpring, useMotionValue, useMotionValueEvent } from "motion/react";
+import { useState, useEffect } from "react";
+import { Button } from "@/components/ui/Button";
 
-function verdictTone(verdict: string) {
-  if (verdict.toLowerCase().includes("fake")) return "danger";
-  if (verdict.toLowerCase().includes("real")) return "safe";
-  return "neutral";
+interface VerdictCardProps {
+  verdict: string;
+  probability: number;
+  threshold: number;
 }
 
-export function VerdictCard({ result }: { result: AnalysisResult }) {
-  const percentage = Math.round(result.probability * 100);
-  const tone = verdictTone(result.verdict);
-  const GaugeIcon = percentage >= 50 ? ArrowUpRight : ArrowDownRight;
+export function VerdictCard({ verdict, probability, threshold }: VerdictCardProps) {
+  const [displayPct, setDisplayPct] = useState(0);
+
+  // Animate the percentage number
+  const motionVal = useMotionValue(0);
+  const spring = useSpring(motionVal, { stiffness: 60, damping: 20 });
+
+  useEffect(() => {
+    motionVal.set(probability * 100);
+  }, [probability, motionVal]);
+
+  useMotionValueEvent(spring, "change", (v) => {
+    setDisplayPct(Math.round(v * 10) / 10);
+  });
+
+  const verdictColor =
+    verdict === "Likely Fake"
+      ? "text-fake-red"
+      : verdict === "Likely Real"
+        ? "text-real-green"
+        : "text-amber";
+
+  const strokeColor =
+    verdict === "Likely Fake"
+      ? "var(--color-fake-red)"
+      : verdict === "Likely Real"
+        ? "var(--color-real-green)"
+        : "var(--color-amber)";
+
+  // SVG gauge
+  const radius = 78;
+  const circumference = 2 * Math.PI * radius;
+  const offset = circumference * (1 - probability);
 
   return (
-    <Card className={`verdict-card verdict-${tone}`}>
-      <div className="verdict-top">
-        <span className="eyebrow">AUTHENTICITY ASSESSMENT</span>
-        {result.demo_mode && <span className="demo-badge">DEMO RESULT</span>}
-      </div>
-      <div className="verdict-main">
-        <div>
-          <span className="verdict-label">Model verdict</span>
-          <h2>{result.verdict}</h2>
-          <p className="verdict-subtitle">
-            {result.probability >= result.threshold
-              ? "Probability is above the selected decision threshold."
-              : "Probability is below the selected decision threshold."}
-          </p>
+    <div className="bg-card rounded-card p-8 shadow-sm text-center">
+      {/* Radial gauge */}
+      <div className="relative w-44 h-44 mx-auto mb-5">
+        <svg className="absolute inset-0" viewBox="0 0 180 180">
+          <circle
+            cx="90" cy="90" r={radius}
+            fill="none" strokeWidth="8"
+            stroke="var(--color-bg)"
+          />
+        </svg>
+        <svg className="absolute inset-0" viewBox="0 0 180 180">
+          <motion.circle
+            cx="90" cy="90" r={radius}
+            fill="none" strokeWidth="8"
+            stroke={strokeColor}
+            strokeLinecap="round"
+            strokeDasharray={circumference}
+            initial={{ strokeDashoffset: circumference }}
+            animate={{ strokeDashoffset: offset }}
+            transition={{ duration: 1.1, ease: [0.22, 1, 0.36, 1] }}
+            style={{
+              transform: "rotate(-90deg)",
+              transformOrigin: "center",
+            }}
+          />
+        </svg>
+        <div className="absolute inset-0 flex flex-col items-center justify-center">
+          <span className={`font-serif text-4xl ${verdictColor}`}>
+            {displayPct}%
+          </span>
+          <span className="text-xs text-tertiary mt-1">probability</span>
         </div>
-        <div
-          className="probability-gauge"
-          style={{ "--gauge-value": `${percentage}%` } as React.CSSProperties}
-          aria-label={`${percentage}% manipulation probability`}
-        >
-          <div className="gauge-inner">
-            <GaugeIcon size={18} />
-            <strong>{percentage}%</strong>
-            <span>FAKE SCORE</span>
-          </div>
-        </div>
       </div>
-      <div className="verdict-foot">
-        <span><CircleHelp size={15} /> Decision threshold</span>
-        <strong>{Math.round(result.threshold * 100)}%</strong>
-        <div className="threshold-track">
-          <span style={{ left: `${Math.min(100, result.threshold * 100)}%` }} />
-        </div>
+
+      <h2 className={`font-serif text-2xl ${verdictColor} mb-1`}>{verdict}</h2>
+      <p className="text-sm text-tertiary mb-6">Threshold: {threshold}</p>
+
+      <div className="flex flex-col gap-2">
+        <Button variant="primary" className="w-full">Download PDF report</Button>
+        <Button variant="outlined" className="w-full">Compare with another model</Button>
+        <Button variant="outlined" className="w-full">Analyze another video</Button>
       </div>
-    </Card>
+    </div>
   );
 }

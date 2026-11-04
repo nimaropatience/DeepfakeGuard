@@ -1,26 +1,27 @@
-import { motion, type HTMLMotionProps } from "framer-motion";
-import { forwardRef } from "react";
+import { motion } from "motion/react";
+import type { ComponentProps } from "react";
 
-type ButtonProps = HTMLMotionProps<"button"> & {
-  variant?: "primary" | "secondary" | "ghost";
-  size?: "normal" | "small";
-};
+type Variant = "primary" | "outlined";
 
-export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
-  function Button(
-    { variant = "primary", size = "normal", className = "", children, ...props },
-    ref,
-  ) {
-    return (
-      <motion.button
-        ref={ref}
-        whileHover={{ y: -2 }}
-        whileTap={{ scale: 0.98 }}
-        className={`button button-${variant} button-${size} ${className}`}
-        {...props}
-      >
-        {children}
-      </motion.button>
-    );
-  },
-);
+interface ButtonProps extends ComponentProps<typeof motion.button> {
+  variant?: Variant;
+}
+
+export function Button({ variant = "primary", className = "", children, ...props }: ButtonProps) {
+  const base = "px-6 py-2.5 rounded-full text-sm font-semibold transition-colors font-sans";
+  const variants: Record<Variant, string> = {
+    primary: "bg-primary text-bg hover:opacity-90",
+    outlined: "border-[1.5px] border-border text-primary hover:border-secondary",
+  };
+
+  return (
+    <motion.button
+      whileHover={{ y: -2 }}
+      whileTap={{ scale: 0.97 }}
+      className={`${base} ${variants[variant]} ${className}`}
+      {...props}
+    >
+      {children}
+    </motion.button>
+  );
+}
