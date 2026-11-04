@@ -3,7 +3,7 @@
 An Explainable Hybrid CNN Framework for Real-Time Deepfake Detection in Digital Forensics.
 
 BSc Final Year Project, Uganda Christian University
-Student: Nimaro Patience Torach | Supervisor: Julius Torach
+Student: Nimaro Patience Torach
 
 ## Architecture
 

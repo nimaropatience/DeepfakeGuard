@@ -79,3 +79,10 @@ export interface HistoryItem {
   processing_time: number;
   timestamp: string;
 }
+
+export interface HistoryResponse {
+  items: HistoryItem[];
+  total: number;
+  page: number;
+  per_page: number;
+}

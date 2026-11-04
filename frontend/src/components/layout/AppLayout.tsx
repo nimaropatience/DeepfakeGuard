@@ -2,15 +2,26 @@ import { useEffect } from "react";
 import { Outlet, useLocation } from "react-router-dom";
 import { AnimatePresence, motion } from "motion/react";
 import { Navbar } from "./Navbar";
+import { Footer } from "./Footer";
 import { pageTransition } from "@/lib/motion";
 
 export function AppLayout() {
   const location = useLocation();
 
-  // Scroll to top on route change
+  // Scroll to top on route change, or to the #section in the URL
   useEffect(() => {
-    window.scrollTo(0, 0);
-  }, [location.pathname]);
+    if (!location.hash) {
+      window.scrollTo(0, 0);
+      return;
+    }
+    // Wait for the page transition to mount the target section
+    const timer = setTimeout(() => {
+      document
+        .getElementById(location.hash.slice(1))
+        ?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [location.pathname, location.hash]);
 
   return (
     <div className="min-h-screen bg-bg">
@@ -25,13 +36,7 @@ export function AppLayout() {
         </motion.main>
       </AnimatePresence>
 
-      {/* Footer */}
-      <footer className="border-t border-border mt-16">
-        <div className="max-w-6xl mx-auto px-6 py-10 text-center text-sm text-tertiary">
-          <p>DeepfakeGuard - BSc Final Year Project, Uganda Christian University</p>
-          <p className="mt-1">Nimaro Patience Torach - Supervised by Julius Torach</p>
-        </div>
-      </footer>
+      <Footer />
     </div>
   );
 }

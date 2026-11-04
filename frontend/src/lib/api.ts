@@ -1,5 +1,7 @@
 /** API client for the DeepfakeGuard backend. */
 
+import type { AnalysisResult, HistoryResponse, JobStatus, ModelInfo } from "./types";
+
 const API_BASE = import.meta.env.VITE_API_URL || "";
 
 async function fetchJSON<T>(path: string, init?: RequestInit): Promise<T> {
@@ -28,7 +30,7 @@ export async function analyzeImage(
   file: File,
   modelId: string = "hybrid_fusion",
   threshold: number = 0.5
-) {
+): Promise<AnalysisResult> {
   const form = new FormData();
   form.append("file", file);
   form.append("model_id", modelId);
@@ -37,7 +39,7 @@ export async function analyzeImage(
 }
 
 /** Poll job status. */
-export async function getJobStatus(jobId: string) {
+export async function getJobStatus(jobId: string): Promise<JobStatus> {
   return fetchJSON(`/api/jobs/${jobId}`);
 }
 
@@ -46,7 +48,7 @@ export async function getHistory(
   page: number = 1,
   verdict?: string,
   modelId?: string
-) {
+): Promise<HistoryResponse> {
   const params = new URLSearchParams({ page: page.toString() });
   if (verdict) params.set("verdict", verdict);
   if (modelId) params.set("model_id", modelId);
@@ -54,12 +56,12 @@ export async function getHistory(
 }
 
 /** Get one history record. */
-export async function getHistoryItem(id: number) {
+export async function getHistoryItem(id: number): Promise<AnalysisResult> {
   return fetchJSON(`/api/history/${id}`);
 }
 
 /** List available models. */
-export async function getModels() {
+export async function getModels(): Promise<ModelInfo[]> {
   return fetchJSON("/api/models");
 }
 

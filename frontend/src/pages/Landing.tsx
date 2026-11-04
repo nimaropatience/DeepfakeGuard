@@ -1,10 +1,11 @@
 import { Link } from "react-router-dom";
 import { motion } from "motion/react";
 import { Shield, Eye, BarChart3, FileText, Cpu } from "lucide-react";
-import { fadeUp, staggerContainer } from "@/lib/motion";
+import { fadeUp } from "@/lib/motion";
 import { Reveal } from "@/components/ui/Reveal";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { FramePlaceholder } from "@/components/ui/FramePlaceholder";
 import { CapabilityTabs } from "@/components/landing/CapabilityTabs";
 import { Faq } from "@/components/landing/Faq";
 
@@ -53,26 +54,91 @@ const useCases = [
 export default function Landing() {
   return (
     <div className="space-y-28 pb-20">
-      {/* ── Hero ── */}
-      <section className="pt-24 sm:pt-32 text-center max-w-3xl mx-auto px-4">
-        <Reveal>
-          <motion.p variants={fadeUp} className="text-sm font-semibold uppercase tracking-wider text-accent mb-4">
-            BSc Final-Year Project · Uganda Christian University
-          </motion.p>
-          <motion.h1 variants={fadeUp} className="font-serif text-4xl sm:text-5xl md:text-6xl leading-[1.1] mb-6">
-            Explainable deepfake detection powered by hybrid CNNs
-          </motion.h1>
-          <motion.p variants={fadeUp} className="text-secondary text-lg max-w-xl mx-auto mb-8">
-            DeepfakeGuard fuses spatial and temporal neural features with
-            Grad-CAM explainability to deliver transparent, forensic-grade
-            media verification.
-          </motion.p>
-          <motion.div variants={fadeUp} className="flex gap-3 justify-center flex-wrap">
-            <Link to="/detect"><Button>Start detection</Button></Link>
-            <Link to="/about"><Button variant="outlined">How it works</Button></Link>
+      <div>
+        {/* ── Announcement band ── */}
+        <Link
+          to="/detect"
+          className="flex items-center justify-center gap-3 bg-accent-light border-b border-accent/10 py-3 px-4 text-sm text-accent font-medium"
+        >
+          <span className="bg-accent text-white text-[11px] font-bold tracking-wide px-2.5 py-0.5 rounded-full">
+            NEW
+          </span>
+          Grad-CAM explainability for every verdict
+        </Link>
+
+        {/* ── Hero ── */}
+        <section className="max-w-6xl mx-auto px-6 pt-20 sm:pt-24 grid lg:grid-cols-2 gap-16 items-center">
+          <Reveal>
+            <motion.p
+              variants={fadeUp}
+              className="text-sm font-semibold uppercase tracking-[0.14em] text-accent mb-6"
+            >
+              Explainable deepfake detection
+            </motion.p>
+            <motion.h1
+              variants={fadeUp}
+              className="font-serif text-5xl sm:text-6xl lg:text-[64px] leading-[1.08] mb-7"
+            >
+              Detect deepfakes in seconds.
+              <br />
+              <em className="text-accent">See the evidence.</em>
+            </motion.h1>
+            <motion.p
+              variants={fadeUp}
+              className="text-secondary text-lg leading-relaxed max-w-[470px] mb-9"
+            >
+              A hybrid CNN framework combining spatial analysis with eye-movement
+              tracking. Every verdict comes with Grad-CAM heatmaps showing exactly
+              what the model sees.
+            </motion.p>
+            <motion.div variants={fadeUp} className="flex gap-3 flex-wrap mb-6">
+              <Link to="/detect">
+                <Button className="!px-7 !py-3.5 !text-base">Analyze a video</Button>
+              </Link>
+              <Link to="/live">
+                <Button variant="outlined" className="!px-7 !py-3.5 !text-base">
+                  Try live webcam
+                </Button>
+              </Link>
+            </motion.div>
+            <motion.p variants={fadeUp} className="text-sm text-tertiary">
+              No account required for the prototype
+            </motion.p>
+          </Reveal>
+
+          {/* Evidence preview */}
+          <motion.div
+            initial={{ opacity: 0, y: 24 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.2, ease: [0.22, 1, 0.36, 1] }}
+            className="relative grid grid-cols-2 gap-4 pb-6"
+          >
+            <div className="bg-card rounded-card overflow-hidden shadow-sm">
+              <FramePlaceholder variant="original" label="Source frame" className="h-44 sm:h-[180px]" />
+              <div className="px-4 py-4">
+                <p className="text-xs text-tertiary mb-1">Original</p>
+                <p className="text-sm font-semibold">Frame at 00:03.42</p>
+              </div>
+            </div>
+            <div className="bg-card rounded-card overflow-hidden shadow-sm">
+              <FramePlaceholder variant="heatmap" label="Grad-CAM overlay" className="h-44 sm:h-[180px]" />
+              <div className="px-4 py-4">
+                <p className="text-xs text-tertiary mb-1">Heatmap</p>
+                <p className="text-sm font-semibold">Attention regions</p>
+              </div>
+            </div>
+            <motion.span
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ type: "spring", bounce: 0.4, delay: 0.6 }}
+              style={{ x: "-50%" }}
+              className="absolute left-1/2 bottom-0 whitespace-nowrap bg-fake-red text-white text-sm font-semibold px-6 py-2.5 rounded-full shadow-lg shadow-fake-red/25"
+            >
+              Likely Fake · 87.3%
+            </motion.span>
           </motion.div>
-        </Reveal>
-      </section>
+        </section>
+      </div>
 
       {/* ── Features ── */}
       <section className="max-w-5xl mx-auto px-4">

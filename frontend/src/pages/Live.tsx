@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import type { LiveResult } from "@/hooks/useLiveSocket";
 import { motion } from "motion/react";
 import { Radio, Circle, StopCircle } from "lucide-react";
 import { fadeUp } from "@/lib/motion";
@@ -14,7 +15,13 @@ export default function Live() {
   const streamRef = useRef<MediaStream | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const { scores, connected, connect, disconnect } = useLiveSocket();
+  const { result, connected, connect, disconnect, sendFrame } = useLiveSocket();
+  const [scores, setScores] = useState<LiveResult[]>([]);
+
+  // Keep a rolling history of the last 20 scores from the socket
+  useEffect(() => {
+    if (result) setScores((prev) => [...prev.slice(-19), result]);
+  }, [result]);
 
   const startCamera = async () => {
     try {
@@ -38,10 +45,11 @@ export default function Live() {
   };
 
   const startStreaming = () => {
+    setScores([]);
     connect();
     setStreaming(true);
 
-    // Capture a frame every 500ms and send as base64
+    // Capture a frame every 500ms and send it as JPEG bytes
     intervalRef.current = setInterval(() => {
       const video = videoRef.current;
       const canvas = canvasRef.current;
@@ -52,8 +60,8 @@ export default function Live() {
       const ctx = canvas.getContext("2d");
       if (!ctx) return;
       ctx.drawImage(video, 0, 0);
-      // The WebSocket demo mode doesn't actually process frames,
-      // but this shows the capture pipeline for real inference.
+      // The server replies with one score per JPEG frame it receives
+      canvas.toBlob((blob) => blob && sendFrame(blob), "image/jpeg", 0.7);
     }, 500);
   };
 
@@ -108,11 +116,11 @@ export default function Live() {
               <span>LIVE</span>
             </div>
             <p className="text-2xl font-mono font-bold">
-              {(latestScore.probability * 100).toFixed(1)}%
+              {(latestScore.score * 100).toFixed(1)}%
             </p>
             <p
               className={`text-xs font-semibold ${
-                latestScore.verdict === "FAKE"
+                latestScore.verdict === "Likely Fake"
                   ? "text-red-400"
                   : "text-green-400"
               }`}
@@ -169,14 +177,14 @@ export default function Live() {
         <div className="bg-card rounded-card p-6 shadow-sm max-w-2xl mx-auto">
           <h3 className="text-sm font-semibold mb-3">Score history (last 20)</h3>
           <div className="flex items-end gap-1 h-24">
-            {scores.slice(-20).map((s, i) => (
+            {scores.map((s, i) => (
               <div
                 key={i}
                 className="flex-1 rounded-t transition-all"
                 style={{
-                  height: `${s.probability * 100}%`,
+                  height: `${s.score * 100}%`,
                   backgroundColor:
-                    s.probability > 0.5
+                    s.score > 0.5
                       ? "var(--color-fake-red)"
                       : "var(--color-real-green)",
                 }}

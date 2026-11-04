@@ -24,7 +24,7 @@ def generate_pdf_report(result: dict, output_path: str) -> str:
 
         c.setFont("Helvetica", 10)
         c.drawString(50, height - 80, "BSc Final Year Project, Uganda Christian University")
-        c.drawString(50, height - 95, "Nimaro Patience Torach | Supervised by Julius Torach")
+        c.drawString(50, height - 95, "Nimaro Patience Torach")
 
         # Verdict
         c.setFont("Helvetica-Bold", 18)

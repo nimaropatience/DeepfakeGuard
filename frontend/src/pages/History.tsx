@@ -1,26 +1,41 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { motion, AnimatePresence } from "motion/react";
-import { Clock, Search, ChevronRight, Trash2 } from "lucide-react";
+import { Clock, Search, ChevronRight, Loader2 } from "lucide-react";
 import { fadeUp } from "@/lib/motion";
 import { Reveal } from "@/components/ui/Reveal";
 import { useHistory } from "@/hooks/useHistory";
-import { VerdictCard } from "@/components/results/VerdictCard";
-import { StatTiles } from "@/components/results/StatTiles";
-import { GradCamGallery } from "@/components/results/GradCamGallery";
-import { EarChart } from "@/components/results/EarChart";
-import { TechnicalDetails } from "@/components/results/TechnicalDetails";
-import type { AnalysisResult } from "@/lib/types";
+import { ResultsView } from "@/components/results/ResultsView";
+import { getHistoryItem } from "@/lib/api";
+import type { AnalysisResult, HistoryItem } from "@/lib/types";
 
 export default function History() {
   const [filter, setFilter] = useState("");
-  const { data, isLoading } = useHistory(1, 50, filter || undefined);
+  const { data, isLoading, isError } = useHistory(1);
   const [selected, setSelected] = useState<AnalysisResult | null>(null);
+  const [loadingId, setLoadingId] = useState<number | null>(null);
 
-  const items = data?.items ?? [];
+  const query = filter.trim().toLowerCase();
+  const items = (data?.items ?? []).filter(
+    (item) =>
+      !query ||
+      item.verdict.toLowerCase().includes(query) ||
+      item.filename.toLowerCase().includes(query),
+  );
+
+  const openItem = async (item: HistoryItem) => {
+    setLoadingId(item.id);
+    try {
+      setSelected(await getHistoryItem(item.id));
+    } catch {
+      alert("Could not load this analysis.");
+    } finally {
+      setLoadingId(null);
+    }
+  };
 
   return (
-    <div className="max-w-5xl mx-auto px-4 py-16 space-y-8">
+    <div className="max-w-6xl mx-auto px-6 py-16 space-y-8">
       <Reveal className="text-center">
         <motion.h1 variants={fadeUp} className="font-serif text-3xl sm:text-4xl mb-2">
           Analysis history
@@ -36,7 +51,7 @@ export default function History() {
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-tertiary" />
           <input
             type="text"
-            placeholder="Filter by verdict…"
+            placeholder="Filter by verdict or filename…"
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
             className="w-full bg-card border border-border rounded-lg pl-9 pr-3 py-2 text-sm placeholder:text-tertiary"
@@ -61,21 +76,7 @@ export default function History() {
               ← Back to list
             </button>
 
-            <VerdictCard result={selected} />
-            <StatTiles
-              stats={[
-                { label: "Confidence", value: `${(selected.probability * 100).toFixed(1)}%` },
-                { label: "Faces found", value: selected.faces_detected.toString() },
-                { label: "Frames sampled", value: selected.frames_sampled.toString() },
-                { label: "Inference", value: `${selected.inference_time_ms} ms` },
-                { label: "Device", value: selected.device },
-              ]}
-            />
-            {selected.gradcam_frames.length > 0 && (
-              <GradCamGallery frames={selected.gradcam_frames} />
-            )}
-            {selected.eye_metrics && <EarChart metrics={selected.eye_metrics} />}
-            <TechnicalDetails result={selected} />
+            <ResultsView result={selected} />
           </motion.div>
         ) : (
           /* ── List view ── */
@@ -89,7 +90,13 @@ export default function History() {
               <p className="text-center text-secondary py-12">Loading…</p>
             )}
 
-            {!isLoading && items.length === 0 && (
+            {isError && (
+              <p className="text-center text-fake-red py-12">
+                Could not reach the backend. Is it running on port 8000?
+              </p>
+            )}
+
+            {!isLoading && !isError && items.length === 0 && (
               <div className="text-center py-16">
                 <Clock size={32} className="mx-auto text-tertiary mb-3" />
                 <p className="text-secondary mb-1">No analyses yet</p>
@@ -103,41 +110,39 @@ export default function History() {
             )}
 
             <div className="space-y-2">
-              {items.map((item: any) => {
-                const r: AnalysisResult | null = item.result_json
-                  ? JSON.parse(item.result_json)
-                  : null;
-                if (!r) return null;
-
-                return (
-                  <motion.button
-                    key={item.id}
-                    initial={{ opacity: 0, y: 8 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    onClick={() => setSelected(r)}
-                    className="w-full text-left bg-card rounded-card-sm p-4 shadow-sm hover:shadow-md transition-shadow flex items-center gap-4"
+              {items.map((item) => (
+                <motion.button
+                  key={item.id}
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  onClick={() => openItem(item)}
+                  disabled={loadingId !== null}
+                  className="w-full text-left bg-card rounded-card-sm p-4 shadow-sm hover:shadow-md transition-shadow flex items-center gap-4"
+                >
+                  <div
+                    className={`w-10 h-10 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${
+                      item.verdict === "Likely Fake"
+                        ? "bg-fake-red-light text-fake-red"
+                        : "bg-real-green-light text-real-green"
+                    }`}
                   >
-                    <div
-                      className={`w-10 h-10 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${
-                        r.verdict === "FAKE"
-                          ? "bg-fake-red-light text-fake-red"
-                          : "bg-real-green-light text-real-green"
-                      }`}
-                    >
-                      {(r.probability * 100).toFixed(0)}%
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium text-sm truncate">
-                        {r.file_sha256?.slice(0, 12) ?? "Analysis"} · {r.model_id}
-                      </p>
-                      <p className="text-xs text-tertiary">
-                        {r.verdict} · {r.faces_detected} face(s) · {r.timestamp}
-                      </p>
-                    </div>
+                    {(item.probability * 100).toFixed(0)}%
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-sm truncate">
+                      {item.filename} · {item.model_id}
+                    </p>
+                    <p className="text-xs text-tertiary">
+                      {item.verdict} · {item.processing_time.toFixed(2)} s · {item.timestamp}
+                    </p>
+                  </div>
+                  {loadingId === item.id ? (
+                    <Loader2 size={16} className="animate-spin text-tertiary shrink-0" />
+                  ) : (
                     <ChevronRight size={16} className="text-tertiary shrink-0" />
-                  </motion.button>
-                );
-              })}
+                  )}
+                </motion.button>
+              ))}
             </div>
           </motion.div>
         )}

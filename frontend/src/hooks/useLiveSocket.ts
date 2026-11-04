@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
-interface LiveResult {
+export interface LiveResult {
   score: number;
   verdict: string;
   face_box: { x: number; y: number; width: number; height: number };

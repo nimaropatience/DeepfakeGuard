@@ -18,40 +18,59 @@ from app.models.schemas import (
 )
 
 
+def _hex(c: str) -> tuple:
+    return tuple(int(c[i : i + 2], 16) for i in (1, 3, 5))
+
+
+# Diagonal colour stops (position 0-1, colour) matching the frontend design
+_ORIGINAL_STOPS = [(0.0, _hex("#D6D2CA")), (0.5, _hex("#C9C5BC")), (1.0, _hex("#B9B5AB"))]
+_HEATMAP_STOPS = [
+    (0.0, _hex("#D8D4CC")),
+    (0.35, _hex("#E4CBC6")),
+    (0.62, _hex("#D9827A")),
+    (0.82, _hex("#E6C9C3")),
+    (1.0, _hex("#D6D6CB")),
+]
+
+
+def _gradient_image(stops: list, size: int = 256, shift: float = 0.0):
+    """Top-left to bottom-right gradient through the given colour stops."""
+    from PIL import Image
+
+    def colour_at(t: float) -> tuple:
+        t = min(1.0, max(0.0, t))
+        for (p0, c0), (p1, c1) in zip(stops, stops[1:]):
+            if t <= p1:
+                k = (t - p0) / (p1 - p0) if p1 > p0 else 0.0
+                return tuple(round(a + (b - a) * k) for a, b in zip(c0, c1))
+        return stops[-1][1]
+
+    # Precompute one colour per diagonal, then fill pixels from it
+    diagonal = [colour_at(d / (2 * (size - 1)) + shift) for d in range(2 * size - 1)]
+    img = Image.new("RGB", (size, size))
+    img.putdata([diagonal[x + y] for y in range(size) for x in range(size)])
+    return img
+
+
 def generate_demo_gradcam_images(job_id: str, num_frames: int = 5) -> None:
-    """Create simple placeholder heatmap images for demo mode."""
+    """Create placeholder frame and heatmap images for demo mode."""
     gradcam_dir = os.path.join("outputs", "gradcam", job_id)
     os.makedirs(gradcam_dir, exist_ok=True)
 
     try:
-        from PIL import Image, ImageDraw
-
         for i in range(num_frames):
-            # Original: grey placeholder with face outline
-            orig = Image.new("RGB", (256, 256), (200, 196, 188))
-            draw = ImageDraw.Draw(orig)
-            draw.ellipse([64, 48, 192, 208], outline=(120, 120, 120), width=2)
-            draw.text((90, 240), f"Frame {i+1}", fill=(100, 100, 100))
-            orig.save(os.path.join(gradcam_dir, f"frame_{i}_original.jpg"))
-
-            # Heatmap: warm overlay simulating Grad-CAM
-            heatmap = Image.new("RGB", (256, 256), (200, 196, 188))
-            draw_h = ImageDraw.Draw(heatmap)
-            draw_h.ellipse([64, 48, 192, 208], outline=(120, 120, 120), width=2)
-            # Red hotspot around nose/mouth area (typical Grad-CAM region)
-            for r in range(40, 0, -2):
-                alpha = int(180 * (r / 40))
-                color = (min(255, 180 + alpha // 3), max(0, 80 - alpha // 2), 24)
-                draw_h.ellipse(
-                    [128 - r, 140 - r, 128 + r, 140 + r],
-                    fill=color,
-                )
-            heatmap.save(os.path.join(gradcam_dir, f"frame_{i}_heatmap.jpg"))
+            # Shift the hotspot slightly per frame so they are not identical
+            shift = random.uniform(-0.06, 0.06)
+            _gradient_image(_ORIGINAL_STOPS).save(
+                os.path.join(gradcam_dir, f"frame_{i}_original.jpg"), quality=90
+            )
+            _gradient_image(_HEATMAP_STOPS, shift=shift).save(
+                os.path.join(gradcam_dir, f"frame_{i}_heatmap.jpg"), quality=90
+            )
     except ImportError:
-        # If Pillow is not installed, just create empty files
-        for i in range(num_frames):
-            open(os.path.join(gradcam_dir, f"frame_{i}_original.jpg"), "w").close()
-            open(os.path.join(gradcam_dir, f"frame_{i}_heatmap.jpg"), "w").close()
+        # Without Pillow no files are written; the frontend shows
+        # gradient placeholders when the images fail to load.
+        pass
 
 
 def generate_demo_result(

@@ -27,13 +27,13 @@ export function Navbar() {
       className={`sticky top-0 z-50 transition-all duration-200 ${
         scrolled
           ? "bg-bg/85 backdrop-blur-xl border-b border-border shadow-sm"
-          : "bg-bg border-b border-transparent"
+          : "bg-bg border-b border-border"
       }`}
     >
-      <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
+      <div className="max-w-[1440px] mx-auto px-5 lg:px-12 h-[72px] flex items-center justify-between">
         {/* Logo */}
-        <Link to="/" className="flex items-center gap-2 font-serif text-xl text-primary">
-          <Shield className="w-5 h-5 text-accent" />
+        <Link to="/" className="flex items-center gap-2.5 font-serif text-[22px] text-primary">
+          <Shield className="w-6 h-6 text-accent" strokeWidth={1.75} />
           DeepfakeGuard
         </Link>
 
@@ -45,7 +45,7 @@ export function Navbar() {
               <Link
                 key={link.to}
                 to={link.to}
-                className={`relative px-4 py-1.5 text-sm font-medium rounded-full transition-colors z-10 ${
+                className={`relative px-4 lg:px-[18px] py-2 text-[15px] rounded-full transition-colors z-10 ${
                   isActive ? "text-primary" : "text-secondary hover:text-primary"
                 }`}
               >
@@ -66,7 +66,7 @@ export function Navbar() {
         {/* Desktop CTA */}
         <Link
           to="/detect"
-          className="hidden md:block bg-primary text-bg px-5 py-2 rounded-full text-sm font-semibold hover:-translate-y-0.5 transition-transform"
+          className="hidden md:block bg-primary text-bg px-6 py-2.5 rounded-full text-[15px] font-semibold hover:-translate-y-0.5 transition-transform"
         >
           Start analysis
         </Link>

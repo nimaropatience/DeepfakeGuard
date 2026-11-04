@@ -5,7 +5,7 @@ import { Card } from "@/components/ui/Card";
 
 const models = [
   {
-    id: "hybrid_cnn",
+    id: "hybrid_fusion",
     name: "Hybrid CNN",
     tag: "Recommended",
     desc: "EfficientNet-B4 spatial branch (1,792-dim) fused with Eye-LSTM temporal branch (32-dim) through a 3-layer fusion head. The full 1,824-dimensional feature vector captures both visual artefacts and blink dynamics.",
