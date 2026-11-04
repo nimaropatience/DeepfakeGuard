@@ -1,62 +1,57 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import type { LiveResult } from "../lib/types";
+/** WebSocket hook for live webcam analysis. */
 
-type SocketState = "disconnected" | "connecting" | "connected" | "error";
+import { useCallback, useEffect, useRef, useState } from "react";
+
+interface LiveResult {
+  score: number;
+  verdict: string;
+  face_box: { x: number; y: number; width: number; height: number };
+  fps: number;
+  demo_mode?: boolean;
+}
 
 export function useLiveSocket() {
-  const socketRef = useRef<WebSocket | null>(null);
-  const [state, setState] = useState<SocketState>("disconnected");
+  const ws = useRef<WebSocket | null>(null);
+  const [connected, setConnected] = useState(false);
   const [result, setResult] = useState<LiveResult | null>(null);
-  const [error, setError] = useState<string | null>(null);
 
   const connect = useCallback(() => {
-    if (
-      socketRef.current?.readyState === WebSocket.OPEN ||
-      socketRef.current?.readyState === WebSocket.CONNECTING
-    ) {
-      return;
-    }
+    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+    const url = `${protocol}//${window.location.host}/ws/live`;
+    const socket = new WebSocket(url);
 
-    const apiBase = new URL(import.meta.env.VITE_API_URL ?? window.location.origin);
-    apiBase.protocol = apiBase.protocol === "https:" ? "wss:" : "ws:";
-    apiBase.pathname = `${apiBase.pathname.replace(/\/$/, "")}/ws/live`;
-    apiBase.search = "";
-    const socket = new WebSocket(apiBase);
-    socketRef.current = socket;
-    setState("connecting");
-    setError(null);
-
-    socket.onopen = () => setState("connected");
-    socket.onmessage = (event: MessageEvent<string>) => {
+    socket.onopen = () => setConnected(true);
+    socket.onclose = () => {
+      setConnected(false);
+      setResult(null);
+    };
+    socket.onmessage = (event) => {
       try {
-        const data = JSON.parse(event.data) as LiveResult;
-        setResult(data);
-        if (data.error) setError(data.error);
+        setResult(JSON.parse(event.data));
       } catch {
-        setError("Received an invalid response from the live analysis service.");
+        // ignore parse errors
       }
     };
-    socket.onerror = () => {
-      setState("error");
-      setError("Could not connect to the live analysis service.");
-    };
-    socket.onclose = () => setState("disconnected");
-  }, []);
 
-  const sendFrame = useCallback((frame: Blob) => {
-    if (socketRef.current?.readyState === WebSocket.OPEN) {
-      socketRef.current.send(frame);
-    }
+    ws.current = socket;
   }, []);
 
   const disconnect = useCallback(() => {
-    socketRef.current?.close();
-    socketRef.current = null;
-    setState("disconnected");
-    setResult(null);
+    ws.current?.close();
+    ws.current = null;
   }, []);
 
-  useEffect(() => disconnect, [disconnect]);
+  const sendFrame = useCallback((jpegBlob: Blob) => {
+    if (ws.current?.readyState === WebSocket.OPEN) {
+      ws.current.send(jpegBlob);
+    }
+  }, []);
 
-  return { state, result, error, connect, sendFrame, disconnect };
+  useEffect(() => {
+    return () => {
+      ws.current?.close();
+    };
+  }, []);
+
+  return { connect, disconnect, sendFrame, connected, result };
 }
