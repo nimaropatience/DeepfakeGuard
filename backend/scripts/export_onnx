@@ -1,0 +1,63 @@
+"""
+Export PyTorch model checkpoints to ONNX format for CPU inference.
+
+Usage:
+    python scripts/export_onnx.py --checkpoint path/to/model.pth --output models/hybrid_fusion.onnx
+"""
+
+import argparse
+import torch
+import torch.nn as nn
+
+
+def export_to_onnx(checkpoint_path: str, output_path: str, model_type: str = "hybrid"):
+    """Export a PyTorch checkpoint to ONNX format."""
+
+    if model_type == "hybrid":
+        # Placeholder: replace with your actual model class
+        print(f"Loading checkpoint: {checkpoint_path}")
+        print(f"Exporting to: {output_path}")
+        print()
+        print("To use this script, replace the model class below with your")
+        print("actual FusionModel from train_fusion.py, then run:")
+        print()
+        print(f"  python scripts/export_onnx.py --checkpoint {checkpoint_path} --output {output_path}")
+        print()
+
+        # Example export code (uncomment and adapt):
+        # from your_model import FusionModel
+        # model = FusionModel()
+        # model.load_state_dict(torch.load(checkpoint_path, map_location="cpu"))
+        # model.eval()
+        #
+        # # Dummy inputs matching your model's expected shapes
+        # spatial_input = torch.randn(1, 3, 256, 256)
+        # temporal_input = torch.randn(1, 16, 2)  # 16 frames, 2 EAR values
+        #
+        # torch.onnx.export(
+        #     model,
+        #     (spatial_input, temporal_input),
+        #     output_path,
+        #     input_names=["spatial_input", "temporal_input"],
+        #     output_names=["output"],
+        #     dynamic_axes={
+        #         "spatial_input": {0: "batch_size"},
+        #         "temporal_input": {0: "batch_size"},
+        #     },
+        #     opset_version=17,
+        # )
+        # print(f"Exported successfully to {output_path}")
+
+    elif model_type == "mesonet":
+        print("Export MesoNet-4 checkpoint to ONNX")
+        print("Replace with your MesoNet-4 model class")
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Export PyTorch to ONNX")
+    parser.add_argument("--checkpoint", required=True, help="Path to .pth/.pt file")
+    parser.add_argument("--output", required=True, help="Output .onnx path")
+    parser.add_argument("--type", default="hybrid", choices=["hybrid", "mesonet"])
+    args = parser.parse_args()
+
+    export_to_onnx(args.checkpoint, args.output, args.type)

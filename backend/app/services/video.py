@@ -1,71 +1,61 @@
-"""PDF forensic report generation using ReportLab."""
 
-# This is a placeholder. Full implementation would use reportlab
-# to create a professional PDF with:
-# - Verdict, probability, threshold
-# - Grad-CAM heatmap images
-# - EAR chart
-# - Metadata (timestamps, SHA-256, model info)
-# - Disclaimer text
+"""Video decoding and uniform frame sampling."""
+
+import cv2
+import numpy as np
 
 
-def generate_pdf_report(result: dict, output_path: str) -> str:
-    """Generate a PDF forensic report from an analysis result."""
-    try:
-        from reportlab.lib.pagesizes import A4
-        from reportlab.pdfgen import canvas
+def sample_frames(video_path: str, num_frames: int = 16) -> list[np.ndarray]:
+    """
+    Decode a video and uniformly sample num_frames across its duration.
+    Returns a list of BGR numpy arrays.
+    """
+    cap = cv2.VideoCapture(video_path)
+    if not cap.isOpened():
+        raise ValueError(f"Cannot open video: {video_path}")
 
-        c = canvas.Canvas(output_path, pagesize=A4)
-        width, height = A4
+    total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+    fps = cap.get(cv2.CAP_PROP_FPS)
 
-        # Title
-        c.setFont("Helvetica-Bold", 24)
-        c.drawString(50, height - 60, "DeepfakeGuard Forensic Report")
+    if total_frames <= 0:
+        raise ValueError("Video has no frames")
 
-        c.setFont("Helvetica", 10)
-        c.drawString(50, height - 80, "BSc Final Year Project, Uganda Christian University")
-        c.drawString(50, height - 95, "Nimaro Patience Torach | Supervised by Julius Torach")
+    # Calculate uniform sample indices
+    indices = np.linspace(0, total_frames - 1, num_frames, dtype=int)
 
-        # Verdict
-        c.setFont("Helvetica-Bold", 18)
-        y = height - 140
-        c.drawString(50, y, f"Verdict: {result.get('verdict', 'N/A')}")
+    frames = []
+    for idx in indices:
+        cap.set(cv2.CAP_PROP_POS_FRAMES, idx)
+        ret, frame = cap.read()
+        if ret:
+            frames.append(frame)
 
-        c.setFont("Helvetica", 14)
-        y -= 30
-        c.drawString(50, y, f"Probability: {result.get('probability', 'N/A')}")
-        y -= 25
-        c.drawString(50, y, f"Threshold: {result.get('threshold', 'N/A')}")
-        y -= 25
-        c.drawString(50, y, f"Model: {result.get('model_id', 'N/A')}")
+    cap.release()
 
-        # Metadata
-        y -= 40
-        c.setFont("Helvetica-Bold", 14)
-        c.drawString(50, y, "Technical Details")
-        c.setFont("Helvetica", 11)
+    if len(frames) == 0:
+        raise ValueError("No frames could be read from video")
 
-        details = [
-            ("Processing Time", f"{result.get('processing_time', 'N/A')}s"),
-            ("Device", result.get("device", "N/A")),
-            ("Resolution", result.get("resolution", "N/A")),
-            ("Duration", f"{result.get('duration', 'N/A')}s"),
-            ("Frames Sampled", str(result.get("frames_sampled", "N/A"))),
-            ("SHA-256", result.get("file_sha256", "N/A")[:32] + "..."),
-            ("Timestamp", result.get("timestamp", "N/A")),
-        ]
+    return frames
 
-        for label, value in details:
-            y -= 20
-            c.drawString(60, y, f"{label}: {value}")
 
-        # Disclaimer
-        y -= 50
-        c.setFont("Helvetica-Oblique", 9)
-        c.drawString(50, y, "Results are probabilistic and support, not replace, expert forensic review.")
+def get_video_metadata(video_path: str) -> dict:
+    """Extract video metadata: total frames, FPS, duration, resolution."""
+    cap = cv2.VideoCapture(video_path)
+    if not cap.isOpened():
+        raise ValueError(f"Cannot open video: {video_path}")
 
-        c.save()
-        return output_path
+    metadata = {
+        "total_frames": int(cap.get(cv2.CAP_PROP_FRAME_COUNT)),
+        "fps": round(cap.get(cv2.CAP_PROP_FPS), 2),
+        "width": int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)),
+        "height": int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT)),
+    }
+    metadata["duration"] = round(
+        metadata["total_frames"] / metadata["fps"], 2
+    ) if metadata["fps"] > 0 else 0.0
+    metadata["resolution"] = f"{metadata['width']}x{metadata['height']}"
 
-    except ImportError:
-        return ""
+    cap.release()
+    return metadata
+
+
