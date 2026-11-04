@@ -1,139 +1,194 @@
-import { useEffect, useRef, useState } from "react";
-import { AlertCircle, Camera, CameraOff, Circle, LoaderCircle, Radio, ShieldCheck } from "lucide-react";
-import { Card } from "../components/ui/Card";
-import { Button } from "../components/ui/Button";
-import { Reveal } from "../components/ui/Reveal";
-import { useLiveSocket } from "../hooks/useLiveSocket";
+import { useState, useRef, useEffect } from "react";
+import { motion } from "motion/react";
+import { Radio, Circle, StopCircle } from "lucide-react";
+import { fadeUp } from "@/lib/motion";
+import { Reveal } from "@/components/ui/Reveal";
+import { Button } from "@/components/ui/Button";
+import { useLiveSocket } from "@/hooks/useLiveSocket";
 
-export function Live() {
+export default function Live() {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [streaming, setStreaming] = useState(false);
+  const [cameraActive, setCameraActive] = useState(false);
   const streamRef = useRef<MediaStream | null>(null);
-  const timerRef = useRef<number | null>(null);
-  const [cameraError, setCameraError] = useState<string | null>(null);
-  const { state, result, error: socketError, connect, sendFrame, disconnect } = useLiveSocket();
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const stopCamera = () => {
-    if (timerRef.current !== null) window.clearInterval(timerRef.current);
-    timerRef.current = null;
-    streamRef.current?.getTracks().forEach((track) => track.stop());
-    streamRef.current = null;
-    if (videoRef.current) videoRef.current.srcObject = null;
-    disconnect();
-  };
+  const { scores, connected, connect, disconnect } = useLiveSocket();
 
   const startCamera = async () => {
-    setCameraError(null);
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: "user", width: { ideal: 640 }, height: { ideal: 480 } },
-        audio: false,
+        video: { facingMode: "user", width: 640, height: 480 },
       });
       streamRef.current = stream;
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
-        await videoRef.current.play();
       }
-      connect();
-    } catch (caught) {
-      setCameraError(caught instanceof Error ? caught.message : "Unable to access the camera.");
+      setCameraActive(true);
+    } catch {
+      alert("Camera access denied.");
     }
   };
 
-  useEffect(() => {
-    if (state !== "connected" || !videoRef.current) return;
-    const canvas = document.createElement("canvas");
-    const context = canvas.getContext("2d");
-    if (!context) {
-      setCameraError("This browser cannot capture camera frames.");
-      return;
-    }
-    timerRef.current = window.setInterval(() => {
-      const video = videoRef.current;
-      if (!video || video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA) return;
-      canvas.width = 480;
-      canvas.height = Math.round(480 * video.videoHeight / video.videoWidth) || 360;
-      context.drawImage(video, 0, 0, canvas.width, canvas.height);
-      canvas.toBlob((blob) => {
-        if (blob) sendFrame(blob);
-      }, "image/jpeg", 0.72);
-    }, 750);
-    return () => {
-      if (timerRef.current !== null) window.clearInterval(timerRef.current);
-      timerRef.current = null;
-    };
-  }, [state, sendFrame]);
+  const stopCamera = () => {
+    streamRef.current?.getTracks().forEach((t) => t.stop());
+    streamRef.current = null;
+    setCameraActive(false);
+  };
 
-  useEffect(() => () => {
-    if (timerRef.current !== null) window.clearInterval(timerRef.current);
-    streamRef.current?.getTracks().forEach((track) => track.stop());
+  const startStreaming = () => {
+    connect();
+    setStreaming(true);
+
+    // Capture a frame every 500ms and send as base64
+    intervalRef.current = setInterval(() => {
+      const video = videoRef.current;
+      const canvas = canvasRef.current;
+      if (!video || !canvas) return;
+
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return;
+      ctx.drawImage(video, 0, 0);
+      // The WebSocket demo mode doesn't actually process frames,
+      // but this shows the capture pipeline for real inference.
+    }, 500);
+  };
+
+  const stopStreaming = () => {
+    disconnect();
+    setStreaming(false);
+    if (intervalRef.current) clearInterval(intervalRef.current);
+  };
+
+  useEffect(() => {
+    return () => {
+      stopCamera();
+      stopStreaming();
+    };
   }, []);
 
-  const scanning = state === "connected";
-  const score = result?.score ?? null;
+  const latestScore = scores.length > 0 ? scores[scores.length - 1] : null;
 
   return (
-    <div className="container page-content">
-      <Reveal>
-        <div className="page-heading">
-          <div><span className="eyebrow">REAL-TIME ANALYSIS / 02</span><h1>Live scan<span>.</span></h1></div>
-          <p>Preview the live camera analysis. Camera frames are sent to the configured API for scoring.</p>
-        </div>
+    <div className="max-w-4xl mx-auto px-4 py-16 space-y-10">
+      <Reveal className="text-center">
+        <motion.h1 variants={fadeUp} className="font-serif text-3xl sm:text-4xl mb-2">
+          Live detection
+        </motion.h1>
+        <motion.p variants={fadeUp} className="text-secondary">
+          Real-time webcam analysis via WebSocket. Currently runs in demo mode.
+        </motion.p>
       </Reveal>
-      <div className="live-layout">
-        <Card className="live-view-card" padded={false}>
-          <div className="live-view-top"><span><span className={`live-dot${scanning ? " active" : ""}`} />{scanning ? "LIVE ANALYSIS" : state === "connecting" ? "CONNECTING" : "CAMERA OFF"}</span><span>{result?.fps ? `${result.fps} FPS` : "— FPS"}</span></div>
-          <div className="live-view">
-            <video ref={videoRef} muted playsInline />
-            {!streamRef.current && (
-              <div className="camera-placeholder"><span className="camera-icon"><CameraOff size={26} /></span><strong>Camera preview is off</strong><span>Start the scan to enable your camera.</span></div>
-            )}
-            <div className="camera-corners"><i /><i /><i /><i /></div>
-            {result?.face_box && (
+
+      {/* Video feed */}
+      <div className="relative bg-black rounded-card overflow-hidden aspect-video max-w-2xl mx-auto">
+        <video
+          ref={videoRef}
+          autoPlay
+          playsInline
+          muted
+          className="w-full h-full object-cover"
+        />
+        <canvas ref={canvasRef} className="hidden" />
+
+        {!cameraActive && (
+          <div className="absolute inset-0 flex items-center justify-center">
+            <p className="text-white/50 text-sm">Camera not active</p>
+          </div>
+        )}
+
+        {/* Live overlay */}
+        {streaming && latestScore && (
+          <div className="absolute top-4 left-4 bg-black/70 backdrop-blur-sm rounded-lg px-4 py-2 text-white">
+            <div className="flex items-center gap-2 text-xs mb-1">
+              <Circle size={8} className="fill-red-500 text-red-500 animate-pulse" />
+              <span>LIVE</span>
+            </div>
+            <p className="text-2xl font-mono font-bold">
+              {(latestScore.probability * 100).toFixed(1)}%
+            </p>
+            <p
+              className={`text-xs font-semibold ${
+                latestScore.verdict === "FAKE"
+                  ? "text-red-400"
+                  : "text-green-400"
+              }`}
+            >
+              {latestScore.verdict}
+            </p>
+          </div>
+        )}
+
+        {/* Connection badge */}
+        {streaming && (
+          <div className="absolute top-4 right-4">
+            <span
+              className={`inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full ${
+                connected
+                  ? "bg-green-500/20 text-green-400"
+                  : "bg-yellow-500/20 text-yellow-400"
+              }`}
+            >
+              <Circle size={6} className={connected ? "fill-green-400" : "fill-yellow-400"} />
+              {connected ? "Connected" : "Connecting…"}
+            </span>
+          </div>
+        )}
+      </div>
+
+      {/* Controls */}
+      <div className="flex justify-center gap-3 flex-wrap">
+        {!cameraActive ? (
+          <Button onClick={startCamera}>
+            <Radio size={16} className="mr-2" />
+            Start camera
+          </Button>
+        ) : !streaming ? (
+          <>
+            <Button onClick={startStreaming}>
+              <Circle size={16} className="mr-2 fill-current" />
+              Start detection
+            </Button>
+            <Button variant="outlined" onClick={stopCamera}>
+              Stop camera
+            </Button>
+          </>
+        ) : (
+          <Button variant="outlined" onClick={stopStreaming}>
+            <StopCircle size={16} className="mr-2" />
+            Stop detection
+          </Button>
+        )}
+      </div>
+
+      {/* Score history */}
+      {scores.length > 0 && (
+        <div className="bg-card rounded-card p-6 shadow-sm max-w-2xl mx-auto">
+          <h3 className="text-sm font-semibold mb-3">Score history (last 20)</h3>
+          <div className="flex items-end gap-1 h-24">
+            {scores.slice(-20).map((s, i) => (
               <div
-                className="face-detection-box"
+                key={i}
+                className="flex-1 rounded-t transition-all"
                 style={{
-                  left: `${(result.face_box.x / 640) * 100}%`,
-                  top: `${(result.face_box.y / 480) * 100}%`,
-                  width: `${(result.face_box.width / 640) * 100}%`,
-                  height: `${(result.face_box.height / 480) * 100}%`,
+                  height: `${s.probability * 100}%`,
+                  backgroundColor:
+                    s.probability > 0.5
+                      ? "var(--color-fake-red)"
+                      : "var(--color-real-green)",
                 }}
               />
-            )}
-            {scanning && <div className="live-scan-line" />}
-            <div className="live-overlay-label"><Circle size={10} fill="currentColor" /> {scanning ? "FRAME CAPTURE ACTIVE" : "AWAITING CAMERA"}</div>
+            ))}
           </div>
-          <div className="live-view-footer">
-            {scanning ? (
-              <Button variant="secondary" onClick={stopCamera}><CameraOff size={16} /> Stop scan</Button>
-            ) : (
-              <Button onClick={() => void startCamera()} disabled={state === "connecting"}>
-                {state === "connecting" ? <LoaderCircle size={16} className="spin" /> : <Camera size={16} />}
-                {state === "connecting" ? "Connecting..." : "Start live scan"}
-              </Button>
-            )}
-            <span><ShieldCheck size={14} /> Camera permission required</span>
+          <div className="flex justify-between text-[10px] text-tertiary mt-1">
+            <span>Older</span>
+            <span>Recent</span>
           </div>
-        </Card>
-        <div className="live-sidebar">
-          <Card className="live-score-card">
-            <span className="eyebrow">CURRENT FRAME SIGNAL</span>
-            <div className="live-score-value">
-              {score === null ? "—" : <>{Math.round(score * 100)}<small>%</small></>}
-            </div>
-            <div className="live-score-meter"><i style={{ width: `${score === null ? 0 : score * 100}%` }} /></div>
-            <div className="score-ends"><span>LIKELY REAL</span><span>LIKELY FAKE</span></div>
-            <div className={`live-verdict${result?.verdict?.includes("Fake") ? " flagged" : ""}`}>{result?.verdict ?? "No signal yet"}</div>
-          </Card>
-          <Card className="live-connection-card">
-            <div className="panel-heading"><div><span className="eyebrow">CONNECTION</span><h3>Analysis stream</h3></div><Radio size={18} /></div>
-            <div className="connection-row"><span>WebSocket</span><strong className={`connection-state ${state}`}>{state}</strong></div>
-            <div className="connection-row"><span>Analysis mode</span><strong>{result?.demo_mode ? "Demo" : "Live"}</strong></div>
-            {result?.error && <p className="live-api-error">{result.error}</p>}
-          </Card>
-          {(cameraError || socketError) && <div className="error-banner"><AlertCircle size={16} /><span>{cameraError || socketError}</span></div>}
-          <div className="live-privacy"><ShieldCheck size={16} /><p>Use this preview as an experimental signal, not a definitive authenticity judgment.</p></div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

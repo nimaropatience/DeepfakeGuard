@@ -1,86 +1,147 @@
 import { useState } from "react";
-import { AlertCircle, ArrowDown, ArrowUpRight, Clock3, FileSearch, LoaderCircle, RefreshCw } from "lucide-react";
 import { Link } from "react-router-dom";
-import { useHistory } from "../hooks/useHistory";
-import { getHistoryResult } from "../lib/api";
-import type { AnalysisResult } from "../lib/types";
-import { Button } from "../components/ui/Button";
-import { Card } from "../components/ui/Card";
-import { Reveal } from "../components/ui/Reveal";
-import { VerdictCard } from "../components/results/VerdictCard";
+import { motion, AnimatePresence } from "motion/react";
+import { Clock, Search, ChevronRight, Trash2 } from "lucide-react";
+import { fadeUp } from "@/lib/motion";
+import { Reveal } from "@/components/ui/Reveal";
+import { useHistory } from "@/hooks/useHistory";
+import { VerdictCard } from "@/components/results/VerdictCard";
+import { StatTiles } from "@/components/results/StatTiles";
+import { GradCamGallery } from "@/components/results/GradCamGallery";
+import { EarChart } from "@/components/results/EarChart";
+import { TechnicalDetails } from "@/components/results/TechnicalDetails";
+import type { AnalysisResult } from "@/lib/types";
 
-function tone(verdict: string) {
-  return verdict.toLowerCase().includes("fake") ? "danger" : verdict.toLowerCase().includes("real") ? "safe" : "neutral";
-}
-
-export function History() {
-  const { items, total, loading, error, reload } = useHistory();
+export default function History() {
+  const [filter, setFilter] = useState("");
+  const { data, isLoading } = useHistory(1, 50, filter || undefined);
   const [selected, setSelected] = useState<AnalysisResult | null>(null);
-  const [loadingId, setLoadingId] = useState<number | null>(null);
-  const [detailError, setDetailError] = useState<string | null>(null);
 
-  const openResult = async (id: number) => {
-    setLoadingId(id);
-    setDetailError(null);
-    try {
-      setSelected(await getHistoryResult(id));
-    } catch (caught) {
-      setDetailError(caught instanceof Error ? caught.message : "Could not open this result.");
-    } finally {
-      setLoadingId(null);
-    }
-  };
+  const items = data?.items ?? [];
 
   return (
-    <div className="container page-content">
-      <Reveal>
-        <div className="page-heading">
-          <div><span className="eyebrow">YOUR WORKSPACE / 03</span><h1>Analysis history<span>.</span></h1></div>
-          <p>Revisit completed media scans and open a saved report to review its details.</p>
-        </div>
+    <div className="max-w-5xl mx-auto px-4 py-16 space-y-8">
+      <Reveal className="text-center">
+        <motion.h1 variants={fadeUp} className="font-serif text-3xl sm:text-4xl mb-2">
+          Analysis history
+        </motion.h1>
+        <motion.p variants={fadeUp} className="text-secondary">
+          Review previous detection results stored in the local database.
+        </motion.p>
       </Reveal>
-      <div className="history-toolbar">
-        <span><strong>{total}</strong> {total === 1 ? "analysis" : "analyses"} recorded</span>
-        <Button size="small" variant="secondary" onClick={() => void reload()} disabled={loading}><RefreshCw size={14} /> Refresh</Button>
-      </div>
-      {error && <div className="error-banner"><AlertCircle size={17} /><span>{error}</span></div>}
-      {detailError && <div className="error-banner"><AlertCircle size={17} /><span>{detailError}</span></div>}
-      {selected && (
-        <div className="history-detail">
-          <div className="results-heading">
-            <div><span className="eyebrow">SAVED REPORT</span><h2>Analysis details</h2></div>
-            <Button variant="secondary" onClick={() => setSelected(null)}>Close report</Button>
-          </div>
-          <VerdictCard result={selected} />
-          <Card className="result-panel">
-            <div className="panel-heading"><div><span className="eyebrow">FILE FINGERPRINT</span><h3>Technical reference</h3></div></div>
-            <code className="history-hash">{selected.file_sha256}</code>
-          </Card>
+
+      {/* Search / filter */}
+      <div className="flex gap-3 max-w-md mx-auto">
+        <div className="relative flex-1">
+          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-tertiary" />
+          <input
+            type="text"
+            placeholder="Filter by verdict…"
+            value={filter}
+            onChange={(e) => setFilter(e.target.value)}
+            className="w-full bg-card border border-border rounded-lg pl-9 pr-3 py-2 text-sm placeholder:text-tertiary"
+          />
         </div>
-      )}
-      <div className="history-list">
-        {loading && items.length === 0 && <div className="loading-state"><LoaderCircle className="spin" /> Loading analyses...</div>}
-        {!loading && !error && items.length === 0 && (
-          <Card className="empty-state">
-            <span className="empty-icon"><FileSearch size={25} /></span>
-            <h2>No analyses yet</h2><p>Your completed scans will appear here.</p>
-            <Link to="/detect" className="button button-primary">Analyze a file <ArrowUpRight size={15} /></Link>
-          </Card>
-        )}
-        {items.map((item, index) => (
-          <Card className="history-row" key={item.id} onClick={() => void openResult(item.id)} role="button" tabIndex={0} onKeyDown={(event) => { if (event.key === "Enter") void openResult(item.id); }}>
-            <span className="history-index">{String(index + 1).padStart(2, "0")}</span>
-            <div className="history-file">
-              <strong>{item.filename}</strong>
-              <span><Clock3 size={13} /> {new Date(item.timestamp).toLocaleString()}</span>
-            </div>
-            <span className={`verdict-chip ${tone(item.verdict)}`}>{item.verdict}</span>
-            <div className="history-prob"><span>FAKE SCORE</span><strong>{Math.round(item.probability * 100)}%</strong></div>
-            <span className="history-model">{item.model_id.replace(/_/g, " ")}</span>
-            <span className="history-open">{loadingId === item.id ? <LoaderCircle size={17} className="spin" /> : <ArrowDown size={17} />}</span>
-          </Card>
-        ))}
       </div>
+
+      <AnimatePresence mode="wait">
+        {selected ? (
+          /* ── Detail view ── */
+          <motion.div
+            key="detail"
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -20 }}
+            className="space-y-6"
+          >
+            <button
+              onClick={() => setSelected(null)}
+              className="text-sm text-accent hover:underline"
+            >
+              ← Back to list
+            </button>
+
+            <VerdictCard result={selected} />
+            <StatTiles
+              stats={[
+                { label: "Confidence", value: `${(selected.probability * 100).toFixed(1)}%` },
+                { label: "Faces found", value: selected.faces_detected.toString() },
+                { label: "Frames sampled", value: selected.frames_sampled.toString() },
+                { label: "Inference", value: `${selected.inference_time_ms} ms` },
+                { label: "Device", value: selected.device },
+              ]}
+            />
+            {selected.gradcam_frames.length > 0 && (
+              <GradCamGallery frames={selected.gradcam_frames} />
+            )}
+            {selected.eye_metrics && <EarChart metrics={selected.eye_metrics} />}
+            <TechnicalDetails result={selected} />
+          </motion.div>
+        ) : (
+          /* ── List view ── */
+          <motion.div
+            key="list"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            {isLoading && (
+              <p className="text-center text-secondary py-12">Loading…</p>
+            )}
+
+            {!isLoading && items.length === 0 && (
+              <div className="text-center py-16">
+                <Clock size={32} className="mx-auto text-tertiary mb-3" />
+                <p className="text-secondary mb-1">No analyses yet</p>
+                <p className="text-sm text-tertiary">
+                  Results will appear here after you{" "}
+                  <Link to="/detect" className="text-accent hover:underline">
+                    run a detection
+                  </Link>.
+                </p>
+              </div>
+            )}
+
+            <div className="space-y-2">
+              {items.map((item: any) => {
+                const r: AnalysisResult | null = item.result_json
+                  ? JSON.parse(item.result_json)
+                  : null;
+                if (!r) return null;
+
+                return (
+                  <motion.button
+                    key={item.id}
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    onClick={() => setSelected(r)}
+                    className="w-full text-left bg-card rounded-card-sm p-4 shadow-sm hover:shadow-md transition-shadow flex items-center gap-4"
+                  >
+                    <div
+                      className={`w-10 h-10 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${
+                        r.verdict === "FAKE"
+                          ? "bg-fake-red-light text-fake-red"
+                          : "bg-real-green-light text-real-green"
+                      }`}
+                    >
+                      {(r.probability * 100).toFixed(0)}%
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-sm truncate">
+                        {r.file_sha256?.slice(0, 12) ?? "Analysis"} · {r.model_id}
+                      </p>
+                      <p className="text-xs text-tertiary">
+                        {r.verdict} · {r.faces_detected} face(s) · {r.timestamp}
+                      </p>
+                    </div>
+                    <ChevronRight size={16} className="text-tertiary shrink-0" />
+                  </motion.button>
+                );
+              })}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
