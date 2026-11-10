@@ -2,7 +2,6 @@
 
 import json
 import random
-import time
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
