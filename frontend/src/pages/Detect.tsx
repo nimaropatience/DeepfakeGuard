@@ -14,8 +14,8 @@ const IMAGE_EXT = [".jpg", ".jpeg", ".png"];
 const ALL_EXT = [...VIDEO_EXT, ...IMAGE_EXT];
 
 const MODELS = [
-  { id: "hybrid_fusion", label: "Hybrid Fusion (Default)" },
-  { id: "efficientnet_b4", label: "EfficientNet-B4 (Spatial only)" },
+  { id: "efficientnet_b4", label: "EfficientNet-B4 (Default)" },
+  { id: "hybrid_fusion", label: "Hybrid Fusion (runs EfficientNet-B4 until fusion weights are added)" },
   { id: "mesonet4", label: "MesoNet-4 (Baseline)" },
 ];
 
@@ -31,7 +31,7 @@ export default function Detect() {
   const [progress, setProgress] = useState(0);
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [error, setError] = useState("");
-  const [model, setModel] = useState("hybrid_fusion");
+  const [model, setModel] = useState("efficientnet_b4");
   const [threshold, setThreshold] = useState(0.5);
   const [dragOver, setDragOver] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);

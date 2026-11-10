@@ -23,7 +23,7 @@ async def lifespan(app: FastAPI):
     model_registry.load_models(model_dir)
     if model_registry.demo_mode:
         print("\n  DeepfakeGuard running in DEMO MODE")
-        print("  No ONNX weights found in:", model_dir)
+        print("  No model weights (efficientnet_b4.pt / mesonet4.pt) found in:", model_dir)
         print("  Returning realistic mock results.\n")
     else:
         print(f"\n  DeepfakeGuard loaded {len(model_registry.models)} model(s)\n")

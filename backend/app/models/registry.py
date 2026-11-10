@@ -16,32 +16,33 @@ class ModelRegistry:
         self.models: dict[str, dict] = {}
         self.demo_mode: bool = True
         self._sessions: dict = {}
+        self._torch: dict = {}
 
     # All three models with their metadata
     MODEL_CATALOG: list[ModelInfo] = [
         ModelInfo(
             id="hybrid_fusion",
             name="Hybrid Fusion",
-            description="EfficientNet-B4 spatial + Eye LSTM temporal, joined in a fusion head. The default and most robust model.",
+            description="EfficientNet-B4 spatial + Eye LSTM temporal, joined in a fusion head. Research model; weights are not loaded in this build.",
             architecture="EfficientNet-B4 + LSTM",
             input_size="256x256",
             param_count="~19.5M",
             file_size="~75 MB",
-            dfdc_auc="TBD",
-            celeb_df_auc="TBD",
-            is_default=True,
+            dfdc_auc="0.922",
+            celeb_df_auc="0.667",
+            is_default=False,
         ),
         ModelInfo(
             id="efficientnet_b4",
             name="EfficientNet-B4",
-            description="Spatial-only baseline. Analyzes individual face crops without temporal information.",
+            description="Spatial model. Analyzes individual face crops; this is the model the demo scores with.",
             architecture="EfficientNet-B4",
             input_size="256x256",
-            param_count="~19.3M",
-            file_size="~74 MB",
-            dfdc_auc="~0.95",
-            celeb_df_auc="~0.70",
-            is_default=False,
+            param_count="~18.0M",
+            file_size="~70 MB",
+            dfdc_auc="0.917",
+            celeb_df_auc="0.654",
+            is_default=True,
         ),
         ModelInfo(
             id="mesonet4",
@@ -51,8 +52,8 @@ class ModelRegistry:
             input_size="256x256",
             param_count="~28K",
             file_size="~0.2 MB",
-            dfdc_auc="~0.71",
-            celeb_df_auc="~0.33",
+            dfdc_auc="0.817",
+            celeb_df_auc="0.484",
             is_default=False,
         ),
     ]
@@ -63,6 +64,13 @@ class ModelRegistry:
         "efficientnet_b4": ["efficientnet_b4_spatial.onnx"],
         "mesonet4": ["mesonet4_baseline.onnx"],
     }
+
+    # PyTorch checkpoints: copy the notebook's runs/<model>/best.pt to these names
+    TORCH_WEIGHT_FILES = {
+        "efficientnet_b4": "efficientnet_b4.pt",
+        "mesonet4": "mesonet4.pt",
+    }
+    TORCH_FALLBACK_ORDER = ["efficientnet_b4", "mesonet4"]
 
     def load_models(self, model_dir: str) -> None:
         """Try to load ONNX weights. If none found, enable demo mode."""
@@ -87,12 +95,42 @@ class ModelRegistry:
                     print(f"  Failed to load {model_id}: {e}")
                     self.models[model_id] = {"loaded": False, "error": str(e)}
 
-        self.demo_mode = not found_any
+        # PyTorch checkpoints (best.pt files from the training notebook).
+        # These are what the real analysis pipeline runs on.
+        for model_id, filename in self.TORCH_WEIGHT_FILES.items():
+            path = os.path.join(model_dir, filename)
+            if not os.path.exists(path):
+                continue
+            try:
+                from app.services.torch_models import load_checkpoint
+
+                self._torch[model_id] = load_checkpoint(path)
+                self.models[model_id] = {"loaded": True, "format": "pytorch"}
+                print(f"  Loaded model: {model_id} ({filename})")
+            except Exception as e:
+                print(f"  Failed to load {model_id}: {e}")
+                self.models[model_id] = {"loaded": False, "error": str(e)}
+
+        # Real analysis needs at least one PyTorch checkpoint
+        self.demo_mode = not self._torch
 
         # In demo mode, register all models as available (with mock inference)
         if self.demo_mode:
             for info in self.MODEL_CATALOG:
                 self.models[info.id] = {"loaded": False, "demo": True}
+
+    def get_torch_model(self, model_id: str):
+        """
+        Return (model_id_used, model). If the requested model has no weights
+        loaded (e.g. hybrid_fusion), fall back to the best one that does, and
+        report that id so the result shows which model really produced it.
+        """
+        if model_id in self._torch:
+            return model_id, self._torch[model_id]
+        for fallback in self.TORCH_FALLBACK_ORDER:
+            if fallback in self._torch:
+                return fallback, self._torch[fallback]
+        raise RuntimeError("No model weights are loaded")
 
     def get_session(self, model_id: str) -> Optional[dict]:
         """Get ONNX sessions for a model. Returns None in demo mode."""
@@ -111,6 +149,7 @@ class ModelRegistry:
 
     def unload_all(self) -> None:
         self._sessions.clear()
+        self._torch.clear()
         self.models.clear()
 
 

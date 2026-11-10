@@ -1,10 +1,12 @@
 """Video and image analysis endpoints."""
 
+import hashlib
 import os
 import uuid
 from datetime import datetime
 
-from fastapi import APIRouter, BackgroundTasks, File, Form, UploadFile
+from fastapi import APIRouter, BackgroundTasks, File, Form, HTTPException, UploadFile
+from fastapi.concurrency import run_in_threadpool
 
 from app.models.registry import model_registry
 from app.models.schemas import AnalysisResult, JobStatus
@@ -58,13 +60,28 @@ def run_video_analysis(
                 result=result,
             )
         else:
-            # Real inference pipeline would go here
-            # 1. video.py: decode and sample 16 frames
-            # 2. faces.py: MTCNN face detection and 256x256 cropping
-            # 3. eye.py: MediaPipe EAR extraction
-            # 4. inference.py: run ONNX spatial + temporal + fusion
-            # 5. gradcam.py: generate heatmaps on top-5 frames
-            pass
+            from app.services.pipeline import analyze_frames
+            from app.services.video import get_video_metadata, sample_frames_indexed
+
+            def on_stage(stage_name: str, progress: float):
+                jobs[job_id] = JobStatus(
+                    job_id=job_id, status="processing", stage=stage_name, progress=progress
+                )
+
+            on_stage("Extracting frames", 0.1)
+            meta = get_video_metadata(filepath)
+            frames, indices = sample_frames_indexed(filepath, num_frames=16)
+            fps = meta["fps"] if meta["fps"] > 0 else 0.0
+            timestamps = [round(i / fps, 2) if fps else 0.0 for i in indices]
+
+            result = analyze_frames(
+                frames, timestamps, meta, model_id, threshold, job_id,
+                _sha256_file(filepath), on_stage=on_stage,
+            )
+            _save_to_history(job_id, filename, result)
+            jobs[job_id] = JobStatus(
+                job_id=job_id, status="complete", stage="Complete", progress=1.0, result=result
+            )
 
     except Exception as e:
         jobs[job_id] = JobStatus(
@@ -76,6 +93,14 @@ def run_video_analysis(
         # Clean up uploaded file
         if os.path.exists(filepath):
             os.remove(filepath)
+
+
+def _sha256_file(path: str) -> str:
+    h = hashlib.sha256()
+    with open(path, "rb") as f:
+        for chunk in iter(lambda: f.read(1 << 20), b""):
+            h.update(chunk)
+    return h.hexdigest()
 
 
 def _save_to_history(job_id: str, filename: str, result: AnalysisResult):
@@ -176,5 +201,26 @@ async def analyze_image(
         result.eye_metrics.eye_verdict = "N/A (single image)"
         return result.model_dump()
 
-    # Real inference for images would go here
-    return {"error": "Real inference not yet implemented. Run in demo mode."}
+    import cv2
+    import numpy as np
+
+    from app.services.pipeline import NoFaceError, analyze_frames
+
+    content = await file.read()
+    image = cv2.imdecode(np.frombuffer(content, np.uint8), cv2.IMREAD_COLOR)
+    if image is None:
+        raise HTTPException(status_code=400, detail="Could not read this image file")
+
+    h, w = image.shape[:2]
+    meta = {"total_frames": 1, "fps": 0.0, "duration": 0.0, "resolution": f"{w}x{h}"}
+    try:
+        result = await run_in_threadpool(
+            analyze_frames,
+            [image], [0.0], meta, model_id, threshold, job_id,
+            hashlib.sha256(content).hexdigest(), None, True,
+        )
+    except NoFaceError as e:
+        raise HTTPException(status_code=422, detail=str(e))
+
+    _save_to_history(job_id, file.filename or "image", result)
+    return result.model_dump()

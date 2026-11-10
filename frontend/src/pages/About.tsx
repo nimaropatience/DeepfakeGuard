@@ -90,8 +90,8 @@ const pipeline = [
 ];
 
 const limitations = [
-  "The prototype runs in demo mode until trained ONNX weights are placed in backend/models; demo results are simulated.",
-  "Training uses 400 DFDC videos, a small subset of the full dataset, so accuracy on unseen manipulation methods may be lower.",
+  "The verdict comes from the EfficientNet-B4 spatial model. In testing, the eye-movement branch added no measurable accuracy, so eye measurements are shown for reference and do not affect the verdict.",
+  "Training uses 400 DFDC videos, a small subset of the full dataset. On Celeb-DF v2, which the model never saw, AUC falls from about 0.92 to about 0.65.",
   "Eye-movement analysis needs a clearly visible face and eyes across frames. Single images skip the temporal branch entirely.",
   "Grad-CAM shows where the spatial branch focused, not a guarantee of why a video is manipulated.",
 ];

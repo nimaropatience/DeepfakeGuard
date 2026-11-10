@@ -5,7 +5,7 @@ import { ChevronDown } from "lucide-react";
 const faqs = [
   {
     q: "How accurate is DeepfakeGuard?",
-    a: "The hybrid CNN framework achieves competitive AUC scores on the DFDC dataset and generalises to Celeb-DF v2 for cross-dataset evaluation. Exact numbers depend on the training run — see the Models page for current benchmarks.",
+    a: "On the DFDC test split the EfficientNet-B4 model reaches a video-level AUC of about 0.92. On Celeb-DF v2, which it never saw in training, AUC drops to about 0.65, so results on unfamiliar manipulation methods are much less reliable. The test set is small (59 videos), so these figures carry wide uncertainty. See the Models page for the full table.",
   },
   {
     q: "What video formats are supported?",
@@ -25,7 +25,7 @@ const faqs = [
   },
   {
     q: "What does demo mode do?",
-    a: "When ONNX model weights are not present on disk, the backend returns realistic mock results so you can explore the full UI. Upload any video or image and the interface will render simulated verdicts, Grad-CAM heatmaps and EAR charts.",
+    a: "When no trained checkpoint is present in backend/models, the backend returns simulated results so you can explore the interface, and every result is labelled as a demo. With a checkpoint in place, verdicts, per-frame scores and Grad-CAM heatmaps come from the trained model.",
   },
 ];
 

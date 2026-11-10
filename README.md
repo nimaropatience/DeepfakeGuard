@@ -44,8 +44,9 @@ cd backend
 uvicorn app.main:app --reload --port 8000
 ```
 
-The backend starts in **demo mode** if no ONNX weights are found in `backend/models/`.
-Demo mode returns realistic mock results so the UI works without trained models.
+The backend runs real analysis when a trained checkpoint is present in `backend/models/`
+(see Model Weights below). With no checkpoint it starts in **demo mode** and returns
+simulated results that are labelled as such.
 
 ### 3. Set up and start the frontend
 
@@ -69,7 +70,17 @@ docker-compose up --build
 
 ## Model Weights
 
-Place ONNX weights in `backend/models/`:
+Copy the PyTorch checkpoints saved by the training notebook into `backend/models/`:
+
+| File                 | Copy from (notebook output)      |
+|----------------------|----------------------------------|
+| `efficientnet_b4.pt` | `runs/effb4_dfdc/best.pt`        |
+| `mesonet4.pt`        | `runs/meso4_dfdc/best.pt`        |
+
+These load directly with PyTorch; no ONNX export is needed. If Hybrid Fusion is selected
+and has no weights, the backend scores with EfficientNet-B4 and reports that model in the result.
+
+The ONNX filenames below are the original plan and are not used by the current pipeline:
 
 | File                          | Description                    |
 |-------------------------------|--------------------------------|

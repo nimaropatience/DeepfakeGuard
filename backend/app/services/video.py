@@ -38,6 +38,31 @@ def sample_frames(video_path: str, num_frames: int = 16) -> list[np.ndarray]:
     return frames
 
 
+def sample_frames_indexed(
+    video_path: str, num_frames: int = 16
+) -> tuple[list[np.ndarray], list[int]]:
+    """Like sample_frames, but also returns the source frame number of each sample."""
+    cap = cv2.VideoCapture(video_path)
+    if not cap.isOpened():
+        raise ValueError("Cannot open this video file")
+    total = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+    if total <= 0:
+        cap.release()
+        raise ValueError("Video has no frames")
+
+    frames, indices = [], []
+    for idx in np.linspace(0, total - 1, num_frames, dtype=int):
+        cap.set(cv2.CAP_PROP_POS_FRAMES, int(idx))
+        ok, frame = cap.read()
+        if ok:
+            frames.append(frame)
+            indices.append(int(idx))
+    cap.release()
+    if not frames:
+        raise ValueError("No frames could be read from video")
+    return frames, indices
+
+
 def get_video_metadata(video_path: str) -> dict:
     """Extract video metadata: total frames, FPS, duration, resolution."""
     cap = cv2.VideoCapture(video_path)

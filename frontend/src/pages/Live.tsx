@@ -87,7 +87,7 @@ export default function Live() {
           Live detection
         </motion.h1>
         <motion.p variants={fadeUp} className="text-secondary">
-          Real-time webcam analysis via WebSocket. Currently runs in demo mode.
+          Webcam analysis via WebSocket, scoring about two frames per second on CPU. The model was trained on face-swap videos, so scores on a live webcam are indicative only.
         </motion.p>
       </Reveal>
 

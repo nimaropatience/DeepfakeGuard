@@ -32,8 +32,8 @@ const features = [
   },
   {
     icon: Cpu,
-    title: "ONNX CPU inference",
-    text: "Optimised ONNX Runtime execution runs on any machine without a GPU. Demo mode works with no model weights.",
+    title: "CPU inference",
+    text: "Runs on an ordinary laptop without a GPU: a 16-frame video takes roughly 5 to 10 seconds with EfficientNet-B4 and 1 to 2 seconds with MesoNet-4.",
   },
 ];
 

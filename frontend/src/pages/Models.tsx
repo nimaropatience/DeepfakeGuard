@@ -7,28 +7,28 @@ const models = [
   {
     id: "hybrid_fusion",
     name: "Hybrid CNN",
-    tag: "Recommended",
+    tag: "Research model",
     desc: "EfficientNet-B4 spatial branch (1,792-dim) fused with Eye-LSTM temporal branch (32-dim) through a 3-layer fusion head. The full 1,824-dimensional feature vector captures both visual artefacts and blink dynamics.",
     arch: "EfficientNet-B4 + LSTM",
     input: "16 frames × 256×256 + EAR sequence",
     params: "~21 M (70 % frozen)",
-    auc: "Placeholder — pending full training",
+    auc: "0.922 (95% CI 0.76–1.00)",
     dataset: "DFDC (400 videos, identity split)",
-    crossDataset: "Celeb-DF v2 (6,229 videos)",
-    weights: ["efficientnet_spatial.onnx", "eye_lstm_temporal.onnx"],
+    crossDataset: "Celeb-DF v2 test list (518 videos): AUC 0.667",
+    weights: ["not loaded in this build"],
   },
   {
     id: "efficientnet_b4",
     name: "EfficientNet-B4",
-    tag: "Spatial only",
-    desc: "Standalone spatial branch. Scores individual face crops without temporal context. Faster than the hybrid but misses blink-pattern cues.",
+    tag: "Recommended",
+    desc: "Standalone spatial branch. Scores individual face crops without temporal context. This is the model the demo uses for its verdicts.",
     arch: "EfficientNet-B4",
     input: "Single frame 256×256",
     params: "~19 M (70 % frozen)",
-    auc: "Placeholder — pending full training",
+    auc: "0.917 (95% CI 0.73–1.00)",
     dataset: "DFDC (400 videos, identity split)",
-    crossDataset: "Celeb-DF v2 (6,229 videos)",
-    weights: ["efficientnet_spatial.onnx"],
+    crossDataset: "Celeb-DF v2 test list (518 videos): AUC 0.654",
+    weights: ["efficientnet_b4.pt"],
   },
   {
     id: "mesonet4",
@@ -38,10 +38,10 @@ const models = [
     arch: "MesoNet-4",
     input: "Single frame 256×256",
     params: "~28 K",
-    auc: "Placeholder — pending full training",
+    auc: "0.817 (95% CI 0.62–0.97)",
     dataset: "DFDC (400 videos, identity split)",
-    crossDataset: "Celeb-DF v2 (6,229 videos)",
-    weights: ["mesonet4.onnx"],
+    crossDataset: "Celeb-DF v2 test list (518 videos): AUC 0.484",
+    weights: ["mesonet4.pt"],
   },
 ];
 
@@ -53,9 +53,9 @@ export default function Models() {
           Models
         </motion.h1>
         <motion.p variants={fadeUp} className="text-secondary max-w-lg mx-auto">
-          Three detection models ship with DeepfakeGuard. The hybrid CNN is the
-          primary contribution; EfficientNet-B4 and MesoNet-4 serve as ablation
-          and baseline comparisons.
+          Three detection models were trained and compared. EfficientNet-B4 produces the
+          verdicts in this demo; the hybrid CNN adds an eye-movement branch as the research
+          contribution, and MesoNet-4 is the lightweight baseline.
         </motion.p>
       </Reveal>
 
@@ -123,11 +123,12 @@ export default function Models() {
 
       {/* Note */}
       <div className="bg-amber-light/40 border border-amber/20 rounded-card p-5 text-sm text-secondary">
-        <p className="font-semibold text-primary mb-1">AUC numbers are placeholders</p>
+        <p className="font-semibold text-primary mb-1">How to read these numbers</p>
         <p>
-          Final AUC scores will be reported once the full Kaggle training pipeline
-          (DFDC 400-video identity split + Celeb-DF v2 cross-dataset evaluation)
-          completes. The architecture and feature dimensions are final.
+          AUC values are video-level results from the DFDC-trained Kaggle run, measured on
+          59 held-out DFDC test videos. With so few videos the confidence intervals are wide,
+          and the small lead of the hybrid model over EfficientNet-B4 is within run-to-run
+          variation. The demo scores uploads with whichever checkpoint is placed in backend/models.
         </p>
       </div>
     </div>

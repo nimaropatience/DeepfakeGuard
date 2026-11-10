@@ -16,3 +16,7 @@ backend/uploads/*
 # Frontend
 node_modules/
 frontend/dist/
+
+# Model weights (large binaries; copy them in locally)
+backend/models/*.pt
+backend/models/*.onnx
